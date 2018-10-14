@@ -10,6 +10,7 @@ import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.location.Address;
@@ -17,6 +18,8 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Handler;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -27,10 +30,16 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.LocationSettingsRequest;
+import com.google.android.gms.location.LocationSettingsResult;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -50,7 +59,10 @@ import java.util.List;
 import java.util.Locale;
 
 
-public class MapActivity extends FragmentActivity implements OnMapReadyCallback, DirectionFinderListener {
+public class MapActivity extends FragmentActivity implements OnMapReadyCallback, DirectionFinderListener,
+        GoogleApiClient.ConnectionCallbacks,
+        GoogleApiClient.OnConnectionFailedListener,
+        ActivityCompat.OnRequestPermissionsResultCallback {
 
     private GoogleMap mMap;
     private Button btnFindPath;
@@ -61,11 +73,12 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     private List<Polyline> polylinePaths = new ArrayList<>();
     private ProgressDialog progressDialog;
     private FusedLocationProviderClient mFusedLocationClient;
-    private static final int INTERVAL = 5000;
+    private static final int INTERVAL = 20000;
     private Handler mHandler;
     private Runnable mRunnable;
     private Context mContext;
     private int mCounter;
+    private GoogleApiClient mGoogleApiClient;
 
 
     @Override
@@ -78,6 +91,19 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
         mapFragment.getMapAsync(this);
 
         mContext = getApplicationContext();
+        mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API).build();
+        mGoogleApiClient.connect();
+
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(1000);
+        mLocationRequest.setFastestInterval(1000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+        LocationSettingsRequest.Builder builder = new LocationSettingsRequest.Builder()
+                .addLocationRequest(mLocationRequest);
+        PendingResult<LocationSettingsResult> result = LocationServices.SettingsApi.checkLocationSettings(mGoogleApiClient, builder.build());
 
 
         btnFindPath = (Button) findViewById(R.id.btnFindPath);
@@ -91,49 +117,62 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             @Override
             public void onClick(View v) {
                 sendRequest();
-                mCounter = 0;
-                mRunnable = new Runnable() {
-                    @Override
-                    public void run() {
-                        startRotation(mFusedLocationClient, etDestination);
-                    }
-                };
-
-                mHandler.postDelayed(mRunnable, (INTERVAL));
+                rotateOnce(etOrigin, etDestination);
+                //startRotation(etOrigin, etDestination);
             }
         });
     }
 
-
-
-    private void startRotation(FusedLocationProviderClient client, EditText destination) {
-        Matrix matrix = new Matrix();
-        ImageView iv = (ImageView) findViewById(R.id.arrow);
-        iv.setScaleType(ImageView.ScaleType.MATRIX);
-        String end = destination.getText().toString();
-        if (!end.equals("")) {
-            Geocoder gc = new Geocoder(this);
-            try {
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    return;
-                }
-                Location location = client.getLastLocation().getResult();
-                Address b = gc.getFromLocationName(end, 1).get(0);
-                if(location == null){
-                    return;
-                }
-                LatLng one = new LatLng(location.getLatitude(), location.getLongitude());
-                LatLng two = new LatLng(b.getLatitude(), b.getLongitude());
-                double angle = calcBearing(one, two);
-                matrix.postRotate((float)angle);
-                iv.setImageMatrix(matrix);
-            } catch (IOException e) {
-                e.printStackTrace();
+    private void rotateOnce(EditText etOrigin, EditText etDestination) {
+        Geocoder gc = new Geocoder(this);
+        try {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                return;
             }
+            Location lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            Address a = gc.getFromLocationName(etDestination.getText().toString(), 100).get(0);
+            Address b = gc.getFromLocationName(etOrigin.getText().toString(), 100).get(0);
+            LatLng x = new LatLng(a.getLatitude(), a.getLongitude());
+            LatLng y = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
+            double angle = calcBearing(y, x);
+            ImageView iv = findViewById(R.id.arrow);
+            Matrix matrix = new Matrix();
+            iv.setScaleType(ImageView.ScaleType.MATRIX);
+            BitmapFactory.Options o = getSize(this, R.drawable.arrow);
+            int px = iv.getHeight()/2;
+            int py = iv.getWidth()/2;
+            matrix.postRotate((float)angle, px, py);
+            iv.setImageMatrix(matrix);
+
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
-
     }
+
+    public static android.graphics.BitmapFactory.Options getSize(Context c, int resID){
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        BitmapFactory.decodeResource(c.getResources(), resID, o);
+        return o;
+    }
+
+    private boolean checkPlayServices(){
+        GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
+        int resultCode = googleApiAvailability.isGooglePlayServicesAvailable(this);
+
+        if(resultCode != ConnectionResult.SUCCESS){
+            if(googleApiAvailability.isUserResolvableError(resultCode)){
+                googleApiAvailability.getErrorDialog(this, resultCode,
+                        GoogleApiAvailability.GOOGLE_PLAY_SERVICES_VERSION_CODE).show();
+            }else{
+                Toast.makeText(getApplicationContext(), "this device is not supported", Toast.LENGTH_LONG).show();
+            }
+            return false;
+        }
+        return true;
+    }
+
 
     private void sendRequest() {
         String origin = etOrigin.getText().toString();
@@ -272,5 +311,20 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
 
             polylinePaths.add(mMap.addPolyline(polylineOptions));
         }
+    }
+
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
     }
 }
