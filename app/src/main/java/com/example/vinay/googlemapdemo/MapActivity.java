@@ -118,8 +118,11 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             public void onClick(View v) {
                 sendRequest();
                 rotateOnce(etDestination);
-
-                android.location.LocationListener listener = new android.location.LocationListener() {
+                LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+                if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, new android.location.LocationListener() {
                     @Override
                     public void onLocationChanged(Location location) {
                         rotateOnce(etDestination);
@@ -139,8 +142,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                     public void onProviderDisabled(String provider) {
 
                     }
-                };
-
+                });
             }
         });
     }
