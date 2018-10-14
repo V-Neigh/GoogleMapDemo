@@ -1,5 +1,11 @@
 package com.example.vinay.googlemapdemo;
 
+import static java.lang.Math.sin;
+import static java.lang.Math.cos;
+import static java.lang.Math.atan2;
+import static java.lang.Math.toDegrees;
+import static java.lang.Math.toRadians;
+
 import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -121,6 +127,26 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             return;
         }
         mMap.setMyLocationEnabled(true);
+    }
+
+    public double calcBearing(LatLng initial, LatLng end){
+        double lat1 = toRadians(initial.latitude);
+        double long1 = toRadians(initial.longitude);
+        double lat2 = toRadians(end.latitude);
+        double long2 = toRadians(end.longitude);
+
+        double diffLong = long2 - long1;
+
+        double y = sin(diffLong) * cos(lat2);
+        double a = cos(lat1) * sin(lat2);
+        double b = sin(lat1) * cos(lat2);
+        b *= cos(diffLong);
+        double x = a - b;
+        double bearing = toDegrees(atan2(y, x));
+        bearing = (bearing + 360) % 360;
+
+        return bearing;
+
     }
 
 
