@@ -4,22 +4,22 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:map="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    tools:context="com.itshareplus.googlemapdemo.MapsActivity"
+    tools:context="com.example.vinay.googlemapdemo.MapActivity"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"  >
 
     <EditText
+        android:id="@+id/etOrigin"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/etOrigin"
         android:hint="Enter origin address" />
 
     <EditText
+        android:id="@+id/etDestination"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter destination address"
-        android:id="@+id/etDestination" />
+        android:hint="Enter destination address" />
 
     <LinearLayout
         android:layout_width="match_parent"

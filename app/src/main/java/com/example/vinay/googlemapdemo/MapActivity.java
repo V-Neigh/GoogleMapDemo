@@ -117,13 +117,35 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             @Override
             public void onClick(View v) {
                 sendRequest();
-                rotateOnce(etOrigin, etDestination);
-                //startRotation(etOrigin, etDestination);
+                rotateOnce(etDestination);
+
+                android.location.LocationListener listener = new android.location.LocationListener() {
+                    @Override
+                    public void onLocationChanged(Location location) {
+                        rotateOnce(etDestination);
+                    }
+
+                    @Override
+                    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+                    }
+
+                    @Override
+                    public void onProviderEnabled(String provider) {
+
+                    }
+
+                    @Override
+                    public void onProviderDisabled(String provider) {
+
+                    }
+                };
+
             }
         });
     }
 
-    private void rotateOnce(EditText etOrigin, EditText etDestination) {
+    private void rotateOnce(EditText etDestination) {
         Geocoder gc = new Geocoder(this);
         try {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
