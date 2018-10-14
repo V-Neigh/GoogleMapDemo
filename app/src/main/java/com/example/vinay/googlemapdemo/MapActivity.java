@@ -11,14 +11,19 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Matrix;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,9 +43,11 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 
 public class MapActivity extends FragmentActivity implements OnMapReadyCallback, DirectionFinderListener {
@@ -54,6 +61,11 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     private List<Polyline> polylinePaths = new ArrayList<>();
     private ProgressDialog progressDialog;
     private FusedLocationProviderClient mFusedLocationClient;
+    private static final int INTERVAL = 5000;
+    private Handler mHandler;
+    private Runnable mRunnable;
+    private Context mContext;
+    private int mCounter;
 
 
     @Override
@@ -65,17 +77,62 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+        mContext = getApplicationContext();
+
+
         btnFindPath = (Button) findViewById(R.id.btnFindPath);
         etOrigin = (EditText) findViewById(R.id.etOrigin);
         etDestination = (EditText) findViewById(R.id.etDestination);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        mHandler = new Handler();
+
         btnFindPath.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 sendRequest();
+                mCounter = 0;
+                mRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        startRotation(mFusedLocationClient, etDestination);
+                    }
+                };
+
+                mHandler.postDelayed(mRunnable, (INTERVAL));
             }
         });
+    }
+
+
+
+    private void startRotation(FusedLocationProviderClient client, EditText destination) {
+        Matrix matrix = new Matrix();
+        ImageView iv = (ImageView) findViewById(R.id.arrow);
+        iv.setScaleType(ImageView.ScaleType.MATRIX);
+        String end = destination.getText().toString();
+        if (!end.equals("")) {
+            Geocoder gc = new Geocoder(this);
+            try {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    return;
+                }
+                Location location = client.getLastLocation().getResult();
+                Address b = gc.getFromLocationName(end, 1).get(0);
+                if(location == null){
+                    return;
+                }
+                LatLng one = new LatLng(location.getLatitude(), location.getLongitude());
+                LatLng two = new LatLng(b.getLatitude(), b.getLongitude());
+                double angle = calcBearing(one, two);
+                matrix.postRotate((float)angle);
+                iv.setImageMatrix(matrix);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
     }
 
     private void sendRequest() {
@@ -100,11 +157,21 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
         mFusedLocationClient.getLastLocation()
                 .addOnSuccessListener(this, new OnSuccessListener<Location>() {
                     @Override
                     public void onSuccess(Location location) {
-                        if(location != null){
+                        if (location != null) {
                             LatLng hcmus = new LatLng(location.getLatitude(), location.getLongitude());
                             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(hcmus, 18));
                             originMarkers.add(mMap.addMarker(new MarkerOptions()
