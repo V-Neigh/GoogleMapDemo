@@ -131,7 +131,6 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback,
             }
             Location lastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
             Address a = gc.getFromLocationName(etDestination.getText().toString(), 100).get(0);
-            Address b = gc.getFromLocationName(etOrigin.getText().toString(), 100).get(0);
             LatLng x = new LatLng(a.getLatitude(), a.getLongitude());
             LatLng y = new LatLng(lastLocation.getLatitude(), lastLocation.getLongitude());
             double angle = calcBearing(y, x);
